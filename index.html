@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>雙向同步學習系統 - 佈局修正版</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background: #525659; }
+        
+        .wrapper {
+            display: grid;
+            grid-template-columns: minmax(250px, 1fr) 3fr minmax(250px, 1fr);
+            background-color: #f0f0f0;
+            min-height: 100vh;
+        }
+
+        .side-panel { background: #ffffff; border-right: 1px solid #ddd; border-left: 1px solid #ddd; }
+
+        .pdf-section { position: sticky; top: 0; height: 100vh; overflow: hidden; background: #666; }
+        iframe { width: 100%; height: 100%; border: none; }
+
+        .section-block {
+            border-bottom: 2px dashed #ccc;
+            min-height: 130vh;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+        }
+
+        .sub-row { flex: 1; border-bottom: 1px solid rgba(0,0,0,0.05); padding: 10px; box-sizing: border-box; font-size: 13px; line-height: 1.5; }
+        
+        /* 筆記容器修正 */
+        .note-container { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            padding: 10px; 
+            border-bottom: 1px solid #eee; 
+            box-sizing: border-box;
+        }
+        
+        .note-label { font-weight: bold; color: #7f8c8d; margin-bottom: 8px; font-size: 10px; border-left: 2px solid #bdc3c7; padding-left: 6px; flex-shrink: 0; }
+        
+        .note-area { 
+            flex: 1; width: 100%; border: 1px solid #e8e8e8; border-radius: 4px; padding: 10px; 
+            font-size: 13px; resize: none; background-color: #fafafa; color: #333; line-height: 1.5;
+            box-sizing: border-box;
+        }
+
+        /* 表格撐開關鍵修正 */
+        .note-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            flex: 1; /* 讓表格佔據剩餘空間 */
+            display: flex; 
+            flex-direction: column; 
+            border: 1px solid #ccc;
+        }
+        
+        .note-table thead { flex-shrink: 0; }
+        .note-table tbody { flex: 1; display: flex; flex-direction: column; }
+        
+        .note-table thead tr, .note-table tbody tr { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            width: 100%; 
+            flex: 1; 
+        }
+
+        .note-table th { background: #f8f9fa; border: 1px solid #ccc; padding: 8px; font-size: 11px; text-align: left; }
+        .note-table td { border: 1px solid #ccc; padding: 0; position: relative; } /* padding設為0讓textarea填滿 */
+
+        .table-input { 
+            width: 100%; 
+            height: 100%; 
+            border: none; 
+            background: transparent; 
+            resize: none; 
+            font-size: 12px; 
+            outline: none; 
+            padding: 10px; 
+            box-sizing: border-box; 
+            display: block;
+        }
+
+        .has-content { background-color: #fff9db; border-left: 5px solid #f1c40f; }
+
+        .floating-container {
+            position: fixed; bottom: 20px; left: 15px; width: 180px; z-index: 10000;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .floating-card {
+            background: rgba(255, 255, 255, 0.98); padding: 10px; border-radius: 6px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); border: 1px solid #ddd;
+        }
+        .card-header {
+            font-size: 11px; font-weight: bold; color: #555; cursor: pointer;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .bookmark-content { margin-top: 8px; display: block; }
+        .bookmark-content.collapsed { display: none; }
+        .bookmark-list { margin-top: 5px; max-height: 120px; overflow-y: auto; padding: 0; list-style: none; font-size: 11px; }
+        .bookmark-item { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f5f5f5; }
+        .bookmark-link { color: #007bff; cursor: pointer; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+        .btn { width: 100%; padding: 4px; border-radius: 3px; border: none; cursor: pointer; font-size: 11px; margin-top: 4px; }
+        .btn-add { background: #f0f7ff; color: #007bff; border: 1px solid #cce5ff; }
+        .btn-exit { background: #fff5f5; color: #e06666; border: 1px solid #ffdada; margin-top: 0; }
+    </style>
+</head>
+<body>
+
+    <div class="floating-container">
+        <div class="floating-card">
+            <div class="card-header" onclick="toggleBookmarks()">
+                <span>🔖 書籤清單 <small id="bm-count">(0)</small></span>
+                <span id="toggle-icon">▼</span>
+            </div>
+            <div id="bookmark-content" class="bookmark-content">
+                <button class="btn btn-add" onclick="addBookmark()">＋ 新增書籤</button>
+                <ul id="bookmark-list" class="bookmark-list"></ul>
+            </div>
+        </div>
+        <div class="floating-card" style="display: flex; align-items: center; justify-content: space-between; padding: 6px 10px;">
+            <span style="font-size: 11px; color: #888;">P.<span id="current-page-display">1</span></span>
+            <button class="btn btn-exit" style="width: auto; padding: 2px 8px;" onclick="exitReading()">離開</button>
+        </div>
+    </div>
+
+    <div class="wrapper">
+        <div class="side-panel" id="left-panel"></div>
+        <div class="pdf-section" id="pdf-area">
+            <iframe id="pdf-frame" src="web/viewer.html?file=../transformation.pdf#zoom=page-width"></iframe>
+        </div>
+        <div class="side-panel" id="right-panel"></div>
+    </div>
+
+    <script>
+        const TOTAL_PAGES = 33;
+        let isSyncing = false;
+        let activeScroller = 'main';
+        let bookmarks = JSON.parse(localStorage.getItem('study_bookmarks') || '[]');
+
+        function init() {
+            generateBlocks('left-panel', 'left');
+            generateBlocks('right-panel', 'right');
+            populateContent();
+            loadNotes();
+            renderBookmarks();
+            setupSync();
+        }
+
+        function toggleBookmarks() {
+            const content = document.getElementById('bookmark-content');
+            const icon = document.getElementById('toggle-icon');
+            content.classList.toggle('collapsed');
+            icon.innerText = content.classList.contains('collapsed') ? '▲' : '▼';
+        }
+
+        function generateBlocks(panelId, side) {
+            const panel = document.getElementById(panelId);
+            for (let p = 1; p <= TOTAL_PAGES; p++) {
+                const block = document.createElement('div');
+                block.className = 'section-block';
+                block.dataset.page = p;
+                
+                if (side === 'left') {
+                    for (let r = 1; r <= 20; r++) {
+                        const row = document.createElement('div');
+                        row.className = 'sub-row';
+                        row.id = `left-p${p}-r${r}`;
+                        block.appendChild(row);
+                    }
+                } else {
+                    for (let n = 1; n <= 3; n++) {
+                        const noteId = `note-p${p}-n${n}`;
+                        const container = document.createElement('div');
+                        container.className = 'note-container';
+                        
+                        if ((p === 3 && n === 1) || (p === 6 && n === 1) || (p === 6 && n === 2) || (p === 22 && n === 2)) {
+                            let title = "筆記整理";
+                            let col1 = "欄位1", col2 = "欄位2";
+                            
+                            if (p === 3) { title = "研究介紹整理"; col1 = "背景挑戰"; col2 = "研究缺口"; }
+                            else if (p === 6 && n === 1) { title = "文獻回顧整理(1)"; col1 = "研究主題"; col2 = "研究問題"; }
+                            else if (p === 6 && n === 2) { title = "文獻回顧整理(2)"; col1 = "研究缺口"; col2 = "與自身連結"; }
+                            else if (p === 22) { title = "研究發現整理"; col1 = "研究發現"; col2 = "與自身連結"; }
+
+                            container.innerHTML = `<span class="note-label">${title}</span>
+                                <table class="note-table">
+                                    <thead><tr><th>${col1}</th><th>${col2}</th></tr></thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><textarea class="table-input" id="${noteId}-c1" oninput="saveNote(this.id, this.value)"></textarea></td>
+                                            <td><textarea class="table-input" id="${noteId}-c2" oninput="saveNote(this.id, this.value)"></textarea></td>
+                                        </tr>
+                                    </tbody>
+                                </table>`;
+                        } else {
+                            container.innerHTML = `<span class="note-label">P${p} - SEC ${n}</span>
+                                <textarea class="note-area" id="${noteId}" oninput="saveNote('${noteId}', this.value)"></textarea>`;
+                        }
+                        block.appendChild(container);
+                    }
+                }
+                panel.appendChild(block);
+            }
+        }
+
+        function populateContent() {
+            const contentData = [
+                { page: 1, row: 10, html: "請在Abstract或Introduction的地方找出研究問題，並寫在右方筆記欄" },
+                { page: 1, row: 11, html: "在找完研究問題後，接下來30分鐘請依Introduction > Background > Findings and Analysis的順序閱讀這一篇文章" },
+                { page: 2, row: 7, html: "在閱讀Introduction時，請關注文中的研究背景、面臨的挑戰、以及目前的研究缺口" },
+                { page: 3, row: 7, html: "在閱讀Introduction後，請試著將右邊表格中的內容填上" },
+                { page: 3, row: 13, html: "在閱讀Background時，<br>1.若有看見重點引用文獻，請寫在右方筆記欄，並寫下為何重要<br>2.請你重點關注研究主題、研究問題、研究缺口以及如何與自身研究連結"},
+                { page: 6, row: 8,  html: "在閱讀完Background後，請試著將右邊表格中的內容填上，若目前無法摸透，你可以試著做下面五件事情幫助思考<br>1.把剛才列出的文獻整理後寫在此處<br>2.將各個文獻之間的關聯寫下來<br>3.寫下生活中有類似的案例<br>4.把概念畫成心智圖<br>5.用自己的話解釋並寫下這段內容" },
+                { page: 6, row: 12,  html: "你現在閱讀完Background，請你打開書籤清單，點擊Case Finding，前往該章節閱讀"},
+                { page: 6, row: 15, html: "在閱讀Methdology時，請你關注他的操作是怎麼進行的" },
+                { page: 13, row: 1, html: "在閱讀Case Finding時：<br>1.請你重點關注他如何敘述故事，以及他如何與他的理論做連結<br>2.請你重點關注他的研究發現以及如何與自身研究連結<br>3.對資料收集的地方有困惑，你可以回到Methdology看方法細節" },
+                { page: 13, row: 5, html: "Case Finding讀完後你就把論文最重要的90%內容讀完了，讀完這邊今天的任務就基本結束了可以去耍廢了齁齁齁齁" },
+                { page: 22, row: 11, html: "在閱讀完Case Finding後，<br>1.請你寫下作者敘述的過程，如何與理論作連結以及有哪些敘事技巧是自己可以學習的<br>2.請你試著將右邊表格中的內容填上" },
+                { page: 22, row: 15,  html: "恭喜你把最困難的地方弄完了，後面Disscusion跟Conclusion就輕鬆了"},
+                { page: 22, row: 16,  html: "在Disscusion跟Conclusion時，若有讀到讓你感到啟發的地方，請幫我寫在右方"},
+                { page: 28, row: 2,  html: "在讀完論文後，請整理並寫下對你來說整篇論文對你最重要的一到三個啟發"},
+                { page: 4, row: 17,  html: "請幫我寫下表格的重點在右方"}, { page: 8, row: 17,  html: "請幫我寫下表格的重點在右方"},
+                { page: 10, row: 1,  html: "請幫我寫下表格的重點在右方"}, { page: 11, row: 1,  html: "請幫我寫下表格的重點在右方"},
+                { page: 12, row: 1,  html: "請幫我寫下圖片的重點在右方"}, { page: 14, row: 1,  html: "請幫我寫下表格的重點在右方"},
+                { page: 16, row: 1,  html: "請幫我寫下表格的重點在右方"}, { page: 21, row: 1,  html: "請幫我寫下案例的重點在右方"},
+                { page: 23, row: 1,  html: "請幫我寫下這頁的重點在右方"}
+            ];
+            contentData.forEach(item => {
+                const el = document.getElementById(`left-p${item.page}-r${item.row}`);
+                if (el) { el.innerHTML = `<div>${item.html}</div>`; el.classList.add('has-content'); }
+            });
+        }
+
+        function setupSync() {
+            document.body.addEventListener('mouseenter', () => activeScroller = 'main', true);
+            document.getElementById('pdf-area').addEventListener('mouseenter', () => activeScroller = 'pdf', true);
+            window.addEventListener('scroll', () => {
+                if (activeScroller === 'main' && !isSyncing) { isSyncing = true; sync('main'); }
+                updatePageInfo();
+            });
+            document.getElementById('pdf-frame').onload = () => {
+                const pdfDoc = document.getElementById('pdf-frame').contentWindow.document.getElementById('viewerContainer');
+                if (pdfDoc) pdfDoc.addEventListener('scroll', () => {
+                    if (activeScroller === 'pdf' && !isSyncing) { isSyncing = true; sync('pdf'); }
+                    updatePageInfo();
+                });
+            };
+        }
+
+        function sync(source) {
+            window.requestAnimationFrame(() => {
+                const pdfDoc = document.getElementById('pdf-frame').contentWindow?.document.getElementById('viewerContainer');
+                if (!pdfDoc) return;
+                const totalH = document.documentElement.scrollHeight - window.innerHeight;
+                const pdfH = pdfDoc.scrollHeight - pdfDoc.clientHeight;
+                if (source === 'main') pdfDoc.scrollTop = (window.scrollY / totalH) * pdfH;
+                else window.scrollTo(0, (pdfDoc.scrollTop / pdfH) * totalH);
+                setTimeout(() => isSyncing = false, 25);
+            });
+        }
+
+        function addBookmark() {
+            const pdfDoc = document.getElementById('pdf-frame').contentWindow?.document.getElementById('viewerContainer');
+            if (!pdfDoc) return;
+            const name = prompt("書籤名稱：", `P.${getCurrentPage()} 紀錄`);
+            if (name) {
+                bookmarks.push({ name: name, pdfScroll: pdfDoc.scrollTop, mainScroll: window.scrollY });
+                localStorage.setItem('study_bookmarks', JSON.stringify(bookmarks));
+                renderBookmarks();
+            }
+        }
+
+        function renderBookmarks() {
+            const list = document.getElementById('bookmark-list');
+            document.getElementById('bm-count').innerText = `(${bookmarks.length})`;
+            list.innerHTML = '';
+            bookmarks.forEach((bm, index) => {
+                const li = document.createElement('li');
+                li.className = 'bookmark-item';
+                li.innerHTML = `<span class="bookmark-link" onclick="jump(${index})">📍 ${bm.name}</span>
+                                <span style="cursor:pointer;color:#ccc;font-size:14px;" onclick="removeBm(${index})">×</span>`;
+                list.appendChild(li);
+            });
+        }
+
+        function jump(idx) {
+            const bm = bookmarks[idx];
+            activeScroller = 'none';
+            window.scrollTo(0, bm.mainScroll);
+            const pdfDoc = document.getElementById('pdf-frame').contentWindow.document.getElementById('viewerContainer');
+            if (pdfDoc) pdfDoc.scrollTop = bm.pdfScroll;
+            setTimeout(() => { activeScroller = 'main'; updatePageInfo(); }, 100);
+        }
+
+        function removeBm(idx) { bookmarks.splice(idx,1); localStorage.setItem('study_bookmarks', JSON.stringify(bookmarks)); renderBookmarks(); }
+        
+        function getCurrentPage() {
+            const pdfDoc = document.getElementById('pdf-frame').contentWindow?.document.getElementById('viewerContainer');
+            if (pdfDoc) {
+                const pdfH = pdfDoc.scrollHeight - pdfDoc.clientHeight;
+                if (pdfH > 0) {
+                    const ratio = pdfDoc.scrollTop / pdfH;
+                    return Math.min(TOTAL_PAGES, Math.max(1, Math.round(ratio * TOTAL_PAGES) + 1));
+                }
+            }
+            return 1;
+        }
+
+        function updatePageInfo() { document.getElementById('current-page-display').innerText = getCurrentPage(); }
+        function saveNote(id, val) { localStorage.setItem(id, val); }
+        function loadNotes() { document.querySelectorAll('textarea').forEach(ta => { ta.value = localStorage.getItem(ta.id) || ''; }); }
+        function exitReading() { alert("Excel 匯出功能準備中..."); }
+
+        init();
+    </script>
+</body>
+</html>
