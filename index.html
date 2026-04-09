@@ -312,7 +312,52 @@
         function updatePageInfo() { document.getElementById('current-page-display').innerText = getCurrentPage(); }
         function saveNote(id, val) { localStorage.setItem(id, val); }
         function loadNotes() { document.querySelectorAll('textarea').forEach(ta => { ta.value = localStorage.getItem(ta.id) || ''; }); }
-        function exitReading() { alert("Excel 匯出功能準備中..."); }
+        function exitReading() {
+            const confirmExport = confirm("離開前是否要匯出所有筆記為 Excel 檔案？");
+            if (!confirmExport) return;
+
+            try {
+                let data = [];
+                // 1. 抓取一般的 textarea 筆記
+                const noteAreas = document.querySelectorAll('.note-area');
+                noteAreas.forEach(ta => {
+                    if (ta.value.trim() !== "") {
+                        data.push({ "位置": ta.id, "類型": "一般筆記", "內容": ta.value });
+                    }
+                });
+
+                // 2. 抓取表格中的筆記 (針對你定義的那些特殊表格)
+                // 我們抓取所有帶有 table-input 類別的元素
+                const tableInputs = document.querySelectorAll('.table-input');
+                tableInputs.forEach(ti => {
+                    if (ti.value.trim() !== "") {
+                        // 嘗試從 ID 或鄰近的標籤抓取上下文
+                        const parentTable = ti.closest('.note-container');
+                        const label = parentTable ? parentTable.querySelector('.note-label').innerText : "表格筆記";
+                        data.push({ "位置": label, "類型": "表格內容", "內容": ti.value });
+                    }
+                });
+
+                if (data.length === 0) {
+                    alert("目前沒有任何筆記內容可以匯出喔！");
+                    return;
+                }
+
+                // 3. 使用 SheetJS (xlsx.js) 轉換資料
+                const worksheet = XLSX.utils.json_to_sheet(data);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, "StudyNotes");
+
+                // 4. 下載檔案
+                const fileName = `研究筆記_${new Date().toLocaleDateString()}.xlsx`;
+                XLSX.writeFile(workbook, fileName);
+
+                alert("匯出成功！請檢查您的下載資料夾。");
+            } catch (error) {
+                console.error("匯出失敗:", error);
+                alert("匯出過程發生錯誤，請檢查控制台。");
+            }
+        }
 
         init();
     </script>
