@@ -41,6 +41,25 @@
         
         .note-label { font-weight: bold; color: #7f8c8d; margin-bottom: 8px; font-size: 10px; border-left: 2px solid #bdc3c7; padding-left: 6px; flex-shrink: 0; }
         
+        .note-label-input {
+            font-weight: bold;
+            color: #7f8c8d;
+            margin-bottom: 8px;
+            font-size: 10px;
+            border: none;
+            border-left: 2px solid #bdc3c7;
+            padding-left: 6px;
+            background: transparent;
+            width: 100%;
+            outline: none;
+        }
+
+        .note-label-input:focus {
+            border-left-color: #3498db;
+            color: #3498db;
+            background: #fff;
+        }
+
         .note-area { 
             flex: 1; width: 100%; border: 1px solid #e8e8e8; border-radius: 4px; padding: 10px; 
             font-size: 13px; resize: none; background-color: #fafafa; color: #333; line-height: 1.5;
@@ -173,19 +192,29 @@
                 } else {
                     for (let n = 1; n <= 3; n++) {
                         const noteId = `note-p${p}-n${n}`;
+                        const titleId = `${noteId}-title`; // 標題的儲存 ID
                         const container = document.createElement('div');
                         container.className = 'note-container';
                         
-                        if ((p === 3 && n === 1) || (p === 6 && n === 1) || (p === 6 && n === 2) || (p === 22 && n === 2)) {
-                            let title = "筆記整理";
-                            let col1 = "欄位1", col2 = "欄位2";
-                            
-                            if (p === 3) { title = "研究介紹整理"; col1 = "背景挑戰"; col2 = "研究缺口"; }
-                            else if (p === 6 && n === 1) { title = "文獻回顧整理(1)"; col1 = "研究主題"; col2 = "研究問題"; }
-                            else if (p === 6 && n === 2) { title = "文獻回顧整理(2)"; col1 = "研究缺口"; col2 = "與自身連結"; }
-                            else if (p === 22) { title = "研究發現整理"; col1 = "研究發現"; col2 = "與自身連結"; }
+                        let defaultTitle = `P${p} - SEC ${n}`;
+                        let isTable = false;
+                        let col1 = "欄位1", col2 = "欄位2";
 
-                            container.innerHTML = `<span class="note-label">${title}</span>
+                        // 特殊預設表格判斷
+                        if (p === 3 && n === 1) { 
+                            defaultTitle = "研究介紹整理"; col1 = "背景挑戰"; col2 = "研究缺口"; isTable = true; 
+                        } else if (p === 6 && n === 1) { 
+                            defaultTitle = "文獻回顧整理"; col1 = "研究問題"; col2 = "與自身研究連結"; isTable = true; 
+                        } else if (p === 22 && n === 2) { 
+                            defaultTitle = "研究發現整理"; col1 = "研究發現"; col2 = "與自身研究連結"; isTable = true; 
+                        }
+
+                        // 標題 HTML (使用 input 讓使用者修改)
+                        const titleHTML = `<input type="text" class="note-label-input" id="${titleId}" 
+                                            value="${defaultTitle}" oninput="saveTitle('${titleId}', this.value)">`;
+
+                        if (isTable) {
+                            container.innerHTML = `${titleHTML}
                                 <table class="note-table">
                                     <thead><tr><th>${col1}</th><th>${col2}</th></tr></thead>
                                     <tbody>
@@ -196,7 +225,7 @@
                                     </tbody>
                                 </table>`;
                         } else {
-                            container.innerHTML = `<span class="note-label">P${p} - SEC ${n}</span>
+                            container.innerHTML = `${titleHTML}
                                 <textarea class="note-area" id="${noteId}" oninput="saveNote('${noteId}', this.value)"></textarea>`;
                         }
                         block.appendChild(container);
@@ -206,27 +235,27 @@
             }
         }
 
+        // 儲存標題
+        function saveTitle(id, val) {
+            localStorage.setItem(id, val);
+        }
+
         function populateContent() {
             const contentData = [
                 { page: 1, row: 10, html: "請在Abstract或Introduction的地方找出研究問題，並寫在右方筆記欄" },
-                { page: 1, row: 11, html: "在找完研究問題後，接下來30分鐘請依Introduction > Background > Findings and Analysis的順序閱讀這一篇文章" },
+                { page: 1, row: 11, html: "在找完研究問題後，接下來30分鐘請依Introduction > Background > Findings and Analysis的順序閱讀此文章。若您有自己習慣的閱讀習慣，您也可以先採用您的閱讀習慣" },
                 { page: 2, row: 7, html: "在閱讀Introduction時，請關注文中的研究背景、面臨的挑戰、以及目前的研究缺口" },
                 { page: 3, row: 7, html: "在閱讀Introduction後，請試著將右邊表格中的內容填上" },
-                { page: 3, row: 13, html: "在閱讀Background時，<br>1.若有看見重點引用文獻，請寫在右方筆記欄，並寫下為何重要<br>2.請你重點關注研究主題、研究問題、研究缺口以及如何與自身研究連結"},
-                { page: 6, row: 8,  html: "在閱讀完Background後，請試著將右邊表格中的內容填上，若目前無法摸透，你可以試著做下面五件事情幫助思考<br>1.把剛才列出的文獻整理後寫在此處<br>2.將各個文獻之間的關聯寫下來<br>3.寫下生活中有類似的案例<br>4.把概念畫成心智圖<br>5.用自己的話解釋並寫下這段內容" },
-                { page: 6, row: 12,  html: "你現在閱讀完Background，請你打開書籤清單，點擊Case Finding，前往該章節閱讀"},
+                { page: 3, row: 13, html: "在閱讀Background時，<br>1.若有看見重點引用文獻，請寫在右方筆記欄，並寫下為何重要<br>2.請你重點關注研究問題以及如何與自身研究連結"},
+                { page: 6, row: 8,  html: "在閱讀完Background後，請試著將右邊表格中的內容填上，若目前無法摸透，你可以試著做下面三件事情幫助思考<br>1.把剛才列出的文獻整理後寫在此處並試著思考文獻之間的關聯<br>2.把概念畫成心智圖<br>3.用自己的話解釋並寫下這段內容" },
+                { page: 6, row: 12,  html: "你現在閱讀完Background，推薦您先跳過Methdology，前往Case Finding章節閱讀"},
                 { page: 6, row: 15, html: "在閱讀Methdology時，請你關注他的操作是怎麼進行的" },
                 { page: 13, row: 1, html: "在閱讀Case Finding時：<br>1.請你重點關注他如何敘述故事，以及他如何與他的理論做連結<br>2.請你重點關注他的研究發現以及如何與自身研究連結<br>3.對資料收集的地方有困惑，你可以回到Methdology看方法細節" },
-                { page: 13, row: 5, html: "Case Finding讀完後你就把論文最重要的90%內容讀完了，讀完這邊今天的任務就基本結束了可以去耍廢了齁齁齁齁" },
+                { page: 13, row: 5, html: "Case Finding讀完後你就把論文最重要的90%內容讀完了，讀完這邊今天的任務就差不多結束了" },
                 { page: 22, row: 11, html: "在閱讀完Case Finding後，<br>1.請你寫下作者敘述的過程，如何與理論作連結以及有哪些敘事技巧是自己可以學習的<br>2.請你試著將右邊表格中的內容填上" },
                 { page: 22, row: 15,  html: "恭喜你把最困難的地方弄完了，後面Disscusion跟Conclusion就輕鬆了"},
                 { page: 22, row: 16,  html: "在Disscusion跟Conclusion時，若有讀到讓你感到啟發的地方，請幫我寫在右方"},
-                { page: 28, row: 2,  html: "在讀完論文後，請整理並寫下對你來說整篇論文對你最重要的一到三個啟發"},
-                { page: 4, row: 17,  html: "請幫我寫下表格的重點在右方"}, { page: 8, row: 17,  html: "請幫我寫下表格的重點在右方"},
-                { page: 10, row: 1,  html: "請幫我寫下表格的重點在右方"}, { page: 11, row: 1,  html: "請幫我寫下表格的重點在右方"},
-                { page: 12, row: 1,  html: "請幫我寫下圖片的重點在右方"}, { page: 14, row: 1,  html: "請幫我寫下表格的重點在右方"},
-                { page: 16, row: 1,  html: "請幫我寫下表格的重點在右方"}, { page: 21, row: 1,  html: "請幫我寫下案例的重點在右方"},
-                { page: 23, row: 1,  html: "請幫我寫下這頁的重點在右方"}
+                { page: 28, row: 2,  html: "在讀完論文後，請整理並寫下對你來說整篇論文對你最重要的一到三個啟發"}
             ];
             contentData.forEach(item => {
                 const el = document.getElementById(`left-p${item.page}-r${item.row}`);
@@ -310,31 +339,67 @@
         }
 
         function updatePageInfo() { document.getElementById('current-page-display').innerText = getCurrentPage(); }
-        function saveNote(id, val) { localStorage.setItem(id, val); }
-        function loadNotes() { document.querySelectorAll('textarea').forEach(ta => { ta.value = localStorage.getItem(ta.id) || ''; }); }
+        function saveNote(id, val) {localStorage.setItem(id, val);}
+        function loadNotes() {
+            // 載入所有筆記內文
+            document.querySelectorAll('textarea').forEach(ta => {
+                ta.value = localStorage.getItem(ta.id) || '';
+            });
+            // 載入所有自訂標題
+            document.querySelectorAll('.note-label-input').forEach(input => {
+                const savedTitle = localStorage.getItem(input.id);
+                if (savedTitle) {
+                    input.value = savedTitle;
+                }
+            });
+        }
         function exitReading() {
             const confirmExport = confirm("離開前是否要匯出所有筆記為 Excel 檔案？");
             if (!confirmExport) return;
 
             try {
                 let data = [];
-                // 1. 抓取一般的 textarea 筆記
-                const noteAreas = document.querySelectorAll('.note-area');
-                noteAreas.forEach(ta => {
-                    if (ta.value.trim() !== "") {
-                        data.push({ "位置": ta.id, "類型": "一般筆記", "內容": ta.value });
-                    }
-                });
-
-                // 2. 抓取表格中的筆記 (針對你定義的那些特殊表格)
-                // 我們抓取所有帶有 table-input 類別的元素
-                const tableInputs = document.querySelectorAll('.table-input');
-                tableInputs.forEach(ti => {
-                    if (ti.value.trim() !== "") {
-                        // 嘗試從 ID 或鄰近的標籤抓取上下文
-                        const parentTable = ti.closest('.note-container');
-                        const label = parentTable ? parentTable.querySelector('.note-label').innerText : "表格筆記";
-                        data.push({ "位置": label, "類型": "表格內容", "內容": ti.value });
+                
+                // 1. 抓取所有的筆記容器
+                const containers = document.querySelectorAll('.note-container');
+                
+                containers.forEach(container => {
+                    // 獲取該區塊的標題 (現在標題在 .note-label-input 裡)
+                    const titleInput = container.querySelector('.note-label-input');
+                    const label = titleInput ? titleInput.value : "未命名區塊";
+                    
+                    // 檢查是「一般筆記」還是「表格筆記」
+                    const textarea = container.querySelector('.note-area');
+                    const tableInputs = container.querySelectorAll('.table-input');
+                    
+                    if (textarea && textarea.value.trim() !== "") {
+                        // 一般筆記處理
+                        data.push({ 
+                            "位置/標題": label, 
+                            "類型": "一般筆記", 
+                            "內容": textarea.value 
+                        });
+                    } else if (tableInputs.length > 0) {
+                        // 表格筆記處理
+                        let hasTableContent = false;
+                        let tableContent = [];
+                        
+                        tableInputs.forEach((ti, index) => {
+                            if (ti.value.trim() !== "") {
+                                hasTableContent = true;
+                                // 根據表格索引決定是欄位1還是欄位2
+                                const colName = (index % 2 === 0) ? "左側欄位" : "右側欄位";
+                                tableContent.push(`[${colName}]: ${ti.value}`);
+                            }
+                        });
+                        
+                        if (hasTableContent) {
+                            data.push({ 
+                                "位置/標題": label, 
+                                "類型": "表格內容", 
+                                "內容": tableContent.join(" | ") 
+                            });
+                        }
                     }
                 });
 
@@ -343,19 +408,18 @@
                     return;
                 }
 
-                // 3. 使用 SheetJS (xlsx.js) 轉換資料
+                // 3. 使用 SheetJS 轉換並下載
                 const worksheet = XLSX.utils.json_to_sheet(data);
                 const workbook = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(workbook, worksheet, "StudyNotes");
 
-                // 4. 下載檔案
                 const fileName = `研究筆記_${new Date().toLocaleDateString()}.xlsx`;
                 XLSX.writeFile(workbook, fileName);
 
                 alert("匯出成功！請檢查您的下載資料夾。");
             } catch (error) {
                 console.error("匯出失敗:", error);
-                alert("匯出過程發生錯誤，請檢查控制台。");
+                alert("匯出過程發生錯誤，請查看瀏覽器控制台 (F12) 的 Error 訊息。");
             }
         }
 
